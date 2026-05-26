@@ -1,0 +1,19 @@
+Amazon
+
+Expected:
+C++
+DSA
+OOP
+System Design
+Problem Solving
+
+Focus:
+Data Structures
+Coding Rounds
+Efficiency
+Low-level design
+
+Tips:
+Practice arrays, linked lists, trees, graphs
+Write clean code
+Improve speed and accuracy

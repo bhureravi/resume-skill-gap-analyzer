@@ -1,0 +1,14 @@
+Backend Developer Intern
+
+Required:
+C++
+OOP
+DSA
+STL
+Git
+
+Preferred:
+Python
+SQL
+REST API
+Problem Solving

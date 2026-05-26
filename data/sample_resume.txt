@@ -1,0 +1,18 @@
+Ravichandra
+Email: ravichandra@example.com
+Phone: 9876543210
+
+Skills:
+C++
+OOP
+File Handling
+Python
+DSA Basics
+Git
+
+Projects:
+Resume Skill Gap Analyzer
+CPU Scheduling Simulator
+
+Education:
+B.Tech Student

@@ -1,0 +1,14 @@
+=====================================
+Run Time: Tue May 26 18:52:57 2026
+Role: Backend Developer Intern
+Company: Amazon
+Role Match Score: 80%
+Company Match Score: 60%
+Overall Score: 74%
+Missing Role Skills:
+- STL
+Missing Company Skills:
+- System Design
+- Problem Solving
+=====================================
+

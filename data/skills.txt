@@ -1,0 +1,14 @@
+C++
+Python
+OOP
+File Handling
+DSA
+Git
+STL
+SQL
+Java
+HTML
+CSS
+JavaScript
+REST API
+Problem Solving

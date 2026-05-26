@@ -1,0 +1,6 @@
+resume=data/sample_resume.txt
+role=data/roles/backend_intern.txt
+company=data/companies/amazon.txt
+skills=data/skills.txt
+report=output/reports/report.txt
+history=output/history.txt
