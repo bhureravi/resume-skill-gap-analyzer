@@ -1,4 +1,5 @@
 import os
+import re
 
 import streamlit as st
 
@@ -51,13 +52,6 @@ st.markdown(
             box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
             margin-bottom: 1rem;
         }
-        .soft-panel {
-            background: #fffdf9;
-            border: 1px solid rgba(31, 41, 55, 0.08);
-            border-radius: 18px 12px 16px 22px;
-            padding: 1rem 1rem;
-            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
-        }
         .section-title {
             font-size: 1.05rem;
             font-weight: 700;
@@ -94,8 +88,8 @@ st.markdown(
         <div class="pill">Resume Skill Gap Analyzer</div>
         <h1 style="margin-bottom:0.35rem;">Simple resume-to-role prep dashboard</h1>
         <p style="margin:0;color:#6b7280;">
-            Upload your resume, role file, and company file, then get clean recommendations,
-            missing skills, and live job intelligence in one place.
+            Upload your resume, role file, and company file, then get clear recommendations,
+            missing skills, and job-related signals in one place.
         </p>
     </div>
     """,
@@ -112,15 +106,105 @@ def split_items(value: str, delimiter: str = ","):
     return [x.strip() for x in value.split(delimiter) if x.strip()]
 
 
+def unique_keep_order(items):
+    seen = set()
+    result = []
+    for item in items:
+        key = item.strip().lower()
+        if key and key not in seen:
+            seen.add(key)
+            result.append(item.strip())
+    return result
+
+
+def clean_topic(text: str) -> str:
+    s = str(text).strip()
+    s = s.rstrip(".")
+    s = re.sub(r"^(curated tip|web insight|live insight|online keyword|market keyword)\s*:\s*", "", s, flags=re.I)
+    s = re.sub(r"^(priority skill for role|company expectation to cover|good-to-have skill for this role)\s*:\s*", "", s, flags=re.I)
+    s = re.sub(r"^(role gap|company gap|priority topic|online signal|live market signal)\s*:\s*", "", s, flags=re.I)
+    return s.strip()
+
+
+def build_recommendations(result: dict):
+    items = []
+
+    # 1) Main backend recommendations
+    items.extend(split_items(result.get("recommendations", ""), delimiter="||"))
+
+    # 2) Combined recommendations from backend bridge
+    items.extend(result.get("combined_recommendations", []))
+
+    # 3) Add a few helpful notes from curated / web / live signals
+    curated = result.get("curated", {}) or {}
+    items.extend(curated.get("tips", []))
+    items.extend(curated.get("focus", []))
+    items.extend(result.get("web_signals", []))
+    items.extend(result.get("live_signals", []))
+
+    # Normalize into human-style topics
+    topics = []
+    notes = []
+    for item in items:
+        txt = clean_topic(item)
+        if not txt:
+            continue
+
+        # Treat short topic-like items as skills/topics
+        if len(txt.split()) <= 5:
+            topics.append(txt)
+        else:
+            notes.append(txt)
+
+    topics = unique_keep_order(topics)
+    notes = unique_keep_order(notes)
+
+    recs = []
+
+    if topics:
+        top_topics = topics[:4]
+        if len(top_topics) == 1:
+            recs.append(f"Focus first on {top_topics[0]}.")
+        elif len(top_topics) == 2:
+            recs.append(f"Focus first on {top_topics[0]} and {top_topics[1]}.")
+        elif len(top_topics) == 3:
+            recs.append(f"Focus first on {top_topics[0]}, {top_topics[1]}, and {top_topics[2]}.")
+        else:
+            recs.append(f"Focus first on {top_topics[0]}, {top_topics[1]}, {top_topics[2]}, and {top_topics[3]}.")
+
+    # More natural, non-AI-ish bullets
+    topic_set = {t.lower() for t in topics}
+
+    if {"sql", "stl", "rest api"} & topic_set:
+        recs.append("Revise SQL, STL, and REST API together so you can explain them naturally in interviews.")
+
+    if {"problem solving", "debugging", "algorithms"} & topic_set:
+        recs.append("Practice timed problem solving and keep explaining your steps clearly while debugging.")
+
+    if {"c++", "oop", "stl"} & topic_set:
+        recs.append("Be ready to explain your C++ class design, STL choices, and file handling approach.")
+
+    if {"system design", "microservices", "backend development"} & topic_set:
+        recs.append("Refresh your backend and system design basics so your project story sounds practical.")
+
+    if notes:
+        recs.append(notes[0])
+
+    recs.append("Keep one strong project story ready: problem, approach, and result.")
+    recs.append("Use the resume to show impact and clarity, not only a list of tools.")
+
+    return unique_keep_order(recs)[:7]
+
+
 with st.sidebar:
     st.header("Project Status")
     st.write("UI: Streamlit")
     st.write("Backend: C++ engine")
     st.write("Bridge: Python subprocess")
     st.write("Live job API: Adzuna")
-    st.write("Web intelligence: Public-source crawler")
+    st.write("Web research: Public-source crawler")
     st.divider()
-    st.info("The app combines uploaded files, live signals, and public web intelligence into one clean output.")
+    st.info("The app combines uploaded files, live signals, and public web research into one clean output.")
 
 left_col, right_col = st.columns([1.05, 0.95], gap="large")
 
@@ -128,7 +212,7 @@ with left_col:
     with st.container(border=True):
         st.markdown('<div class="section-title">Inputs</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="section-note">You can upload TXT or PDF files. PDFs are converted to text before analysis.</div>',
+            '<div class="section-note">You can upload TXT or PDF files. Company file is optional. PDFs are converted to text before analysis.</div>',
             unsafe_allow_html=True,
         )
 
@@ -143,7 +227,7 @@ with left_col:
         )
 
         company_file = st.file_uploader(
-            "Upload Company File",
+            "Upload Company File (optional)",
             type=["txt", "pdf"],
         )
 
@@ -153,7 +237,7 @@ with left_col:
         )
 
         company_name = st.text_input(
-            "Company Label",
+            "Company Label (optional)",
             placeholder="Example: amazon",
         )
 
@@ -168,9 +252,9 @@ with left_col:
         )
 
         use_live_api = st.checkbox("Use live job API", value=True)
-        use_web_intelligence = st.checkbox("Use web intelligence", value=True)
+        use_web_intelligence = st.checkbox("Use web research", value=True)
 
-        run_clicked = st.button("Run Full Analysis", width="stretch")
+        run_clicked = st.button("Run Full Analysis", use_container_width=True)
 
 with right_col:
     with st.container(border=True):
@@ -226,19 +310,40 @@ if st.session_state.last_result:
     result = st.session_state.last_result
 
     with st.container(border=True):
-        st.markdown('<div class="section-title">Missing Skills</div>', unsafe_allow_html=True)
-        missing_items = result.get("combined_missing", [])
-        if missing_items:
-            for item in missing_items:
-                st.write(f"- {item}")
-        else:
-            st.write("No missing skill gaps found.")
+     st.markdown(
+        '<div class="section-title">Areas To Improve</div>',
+        unsafe_allow_html=True
+    )
+
+    missing_items = result.get("combined_missing", [])
+
+    cleaned = []
+
+    for item in missing_items:
+        value = clean_topic(item)
+
+        if value and value.lower() not in [x.lower() for x in cleaned]:
+            cleaned.append(value)
+
+    if cleaned:
+
+        st.write(
+            f"You may want to strengthen the following {len(cleaned)} areas:"
+        )
+
+        for item in cleaned:
+            st.write(f"• {item}")
+
+    else:
+        st.success(
+            "Your resume already covers most of the expected requirements."
+        )
 
     st.divider()
 
     with st.container(border=True):
         st.markdown('<div class="section-title">Recommendations</div>', unsafe_allow_html=True)
-        recommendation_items = result.get("combined_recommendations", [])
+        recommendation_items = build_recommendations(result)
         if recommendation_items:
             for item in recommendation_items:
                 st.write(f"- {item}")
@@ -262,23 +367,13 @@ if st.session_state.last_result:
                     st.markdown(f"[Open listing]({url})")
                 st.divider()
         else:
-            st.write("No live jobs found. The app still uses web signals and public-source prep intelligence.")
-
-    with st.expander("Debug output"):
-        st.subheader("Web summary")
-        st.code(result.get("web_summary", ""), language="text")
-
-        st.subheader("Live summary")
-        st.code(result.get("live_summary", ""), language="text")
-
-        st.subheader("Raw backend output")
-        st.code(result.get("raw", ""), language="text")
+            st.write("No live jobs found.")
 
 if run_clicked:
-    if not resume_file or not role_file or not company_file:
-        st.warning("Please upload all three files first: resume, role file, and company file.")
+    if not resume_file or not role_file:
+        st.warning("Please upload the resume and role file first.")
     else:
-        with st.spinner("Running C++ analysis engine, live job API, and public web intelligence..."):
+        with st.spinner("Running analysis..."):
             result = run_backend_analysis(
                 resume_file,
                 role_file,

@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -7,10 +8,9 @@ from pathlib import Path
 from pypdf import PdfReader
 
 from job_api import (
-    build_enriched_company_file,
-    build_enriched_role_file,
     compose_live_summary,
     fetch_adzuna_jobs,
+    extract_skill_signals,
 )
 from web_intel import search_web_intelligence
 
@@ -55,13 +55,74 @@ def signal_to_tip(signal: str) -> str:
         "Problem Solving": "Practice common interview patterns and timed problem solving.",
         "Algorithms": "Revise sorting, searching, recursion, and complexity analysis.",
         "Data Structures": "Revise arrays, stacks, queues, trees, graphs, and hash maps.",
+        "Next.js": "Revise routing, server rendering, and component structure.",
+        "React": "Revise components, props, state, hooks, and rendering flow.",
+        "TypeScript": "Revise types, interfaces, unions, and function typing.",
+        "Backend Development": "Focus on APIs, logic, databases, and clean modular design.",
+        "Frontend Development": "Focus on UI structure, components, and browser behavior.",
+        "Microservices": "Revise service boundaries, communication, and deployment basics.",
     }
     return mapping.get(signal, f"Review {signal}.")
 
 
-def uploaded_file_to_temp_text(uploaded_file, prefix: str) -> str | None:
+def normalize_text(text: str) -> str:
+    text = text.lower()
+    text = text.replace("c++", "cplusplus")
+    text = text.replace("next.js", "nextjs")
+    text = text.replace("node.js", "nodejs")
+    text = text.replace("rest api", "restapi")
+    text = text.replace("front-end", "frontend")
+    text = text.replace("back-end", "backend")
+    return text
+
+
+def extract_extra_terms(text: str):
+    text = normalize_text(text)
+
+    patterns = {
+        "Next.js": [r"\bnextjs\b", r"\bnext\s*js\b"],
+        "React": [r"\breact\b"],
+        "TypeScript": [r"\btypescript\b"],
+        "Node.js": [r"\bnodejs\b", r"\bnode\s*js\b"],
+        "Python": [r"\bpython\b"],
+        "Java": [r"\bjava\b"],
+        "JavaScript": [r"\bjavascript\b", r"\bjs\b"],
+        "C++": [r"cplusplus", r"\bcpp\b"],
+        "SQL": [r"\bsql\b"],
+        "AWS": [r"\baws\b", r"amazon web services"],
+        "Docker": [r"\bdocker\b"],
+        "Linux": [r"\blinux\b"],
+        "Git": [r"\bgit\b"],
+        "REST API": [r"restapi", r"\bapi\b"],
+        "System Design": [r"system design"],
+        "Microservices": [r"microservices?"],
+        "Backend Development": [r"backend development", r"backend engineering", r"backend developer"],
+        "Frontend Development": [r"frontend development", r"frontend engineering", r"frontend developer"],
+        "Problem Solving": [r"problem solving", r"problem-solving"],
+        "Communication": [r"communication", r"collaboration"],
+        "Debugging": [r"debugging", r"troubleshoot"],
+        "Testing": [r"testing", r"unit test", r"pytest", r"junit"],
+    }
+
+    hits = []
+    for term, pats in patterns.items():
+        for pat in pats:
+            if re.search(pat, text):
+                hits.append(term)
+                break
+
+    return hits
+
+
+def extract_signals_from_text(text: str):
+    base = extract_skill_signals(text)
+    extra = extract_extra_terms(text)
+    return unique_keep_order(base + extra)
+
+
+def uploaded_file_to_text(uploaded_file) -> str:
     if uploaded_file is None:
-        return None
+        return ""
 
     suffix = Path(uploaded_file.name).suffix.lower()
     raw_bytes = uploaded_file.getvalue()
@@ -86,25 +147,82 @@ def uploaded_file_to_temp_text(uploaded_file, prefix: str) -> str | None:
                 f"Could not extract text from PDF '{uploaded_file.name}'. "
                 "Use a text-based PDF or convert it to .txt."
             )
+        return content
 
-        with tempfile.NamedTemporaryFile(
-            delete=False,
-            prefix=prefix,
-            suffix=".txt",
-            mode="w",
-            encoding="utf-8",
-        ) as temp_file:
-            temp_file.write(content)
-            return temp_file.name
+    return raw_bytes.decode("utf-8", errors="ignore")
 
+
+def write_temp_text(prefix: str, text: str) -> str:
     with tempfile.NamedTemporaryFile(
         delete=False,
         prefix=prefix,
         suffix=".txt",
-        mode="wb",
+        mode="w",
+        encoding="utf-8",
     ) as temp_file:
-        temp_file.write(raw_bytes)
+        temp_file.write(text)
         return temp_file.name
+
+
+def build_standard_role_file(role_name: str, raw_text: str, signals: list[str]) -> str:
+    title = role_name.strip() or "Selected Role"
+    combined = unique_keep_order(extract_signals_from_text(raw_text) + signals)
+
+    required = combined[:10]
+    preferred = combined[10:20]
+
+    lines = [title, "", "Required:"]
+    if required:
+        lines.extend(required)
+    else:
+        lines.append("Problem Solving")
+        lines.append("Communication")
+
+    lines.append("")
+    lines.append("Preferred:")
+    if preferred:
+        lines.extend(preferred)
+    else:
+        lines.append("Debugging")
+        lines.append("Testing")
+
+    return write_temp_text("role_std_", "\n".join(lines) + "\n")
+
+
+def build_standard_company_file(company_name: str, raw_text: str, role_name: str, signals: list[str]) -> str:
+    title = company_name.strip() or role_name.strip() or "Selected Company"
+    combined = unique_keep_order(extract_signals_from_text(raw_text) + signals)
+
+    expected = combined[:10]
+    focus = combined[10:16]
+    tips = []
+
+    if expected:
+        for sig in expected[:5]:
+            tips.append(signal_to_tip(sig))
+    else:
+        tips.append("Study the company’s engineering/blog pages and job descriptions.")
+        tips.append("Prepare a short explanation of why you fit the role.")
+
+    if not focus:
+        focus = [
+            "Problem solving",
+            "Clean code",
+            "Role-specific preparation",
+        ]
+
+    lines = [title, "", "Expected:"]
+    lines.extend(expected if expected else ["Problem Solving", "Communication"])
+
+    lines.append("")
+    lines.append("Focus:")
+    lines.extend(focus)
+
+    lines.append("")
+    lines.append("Tips:")
+    lines.extend(unique_keep_order(tips))
+
+    return write_temp_text("company_std_", "\n".join(lines) + "\n")
 
 
 def parse_backend_output(stdout: str) -> dict:
@@ -140,7 +258,7 @@ def cleanup_files(*file_paths):
 def run_backend_analysis(
     resume_upload,
     role_upload,
-    company_upload,
+    company_upload=None,
     role_label: str = "",
     company_label: str = "",
     use_live_job_api: bool = True,
@@ -151,16 +269,14 @@ def run_backend_analysis(
     temp_files = []
 
     try:
-        resume_path = uploaded_file_to_temp_text(resume_upload, "resume_")
-        role_path = uploaded_file_to_temp_text(role_upload, "role_")
-        company_path = uploaded_file_to_temp_text(company_upload, "company_")
+        resume_text = uploaded_file_to_text(resume_upload)
+        role_text = uploaded_file_to_text(role_upload)
+        company_text = uploaded_file_to_text(company_upload) if company_upload else ""
 
-        temp_files.extend([resume_path, role_path, company_path])
-
-        if not resume_path or not role_path or not company_path:
+        if not resume_text.strip() or not role_text.strip():
             return {
                 "ok": False,
-                "error": "Missing one or more uploaded files.",
+                "error": "Resume and role file are required.",
                 "raw": "",
                 "live_used": False,
                 "web_used": False,
@@ -173,6 +289,9 @@ def run_backend_analysis(
                 "combined_missing": [],
                 "combined_recommendations": [],
             }
+
+        resume_path = write_temp_text("resume_", resume_text)
+        temp_files.append(resume_path)
 
         live_result = {
             "ok": False,
@@ -202,9 +321,6 @@ def run_backend_analysis(
         web_signals = []
         curated = {}
 
-        role_path_to_send = role_path
-        company_path_to_send = company_path
-
         if use_live_job_api:
             live_result = fetch_adzuna_jobs(
                 role_label=role_label,
@@ -233,23 +349,30 @@ def run_backend_analysis(
         else:
             curated = {}
 
-        combined_signals = []
-        for item in live_signals + web_signals:
-            if item not in combined_signals:
-                combined_signals.append(item)
+        raw_role_signals = extract_signals_from_text(role_text)
+        raw_company_signals = extract_signals_from_text(company_text if company_text.strip() else role_text)
 
-        for item in curated.get("keywords", []):
-            if item not in combined_signals:
-                combined_signals.append(item)
+        combined_signals = unique_keep_order(
+            raw_role_signals
+            + raw_company_signals
+            + live_signals
+            + web_signals
+            + curated.get("keywords", [])
+        )
 
-        if combined_signals:
-            role_path_to_send = build_enriched_role_file(role_path, combined_signals)
-            company_path_to_send = build_enriched_company_file(
-                company_path,
-                live_result.get("jobs", []),
-                combined_signals,
-            )
-            temp_files.extend([role_path_to_send, company_path_to_send])
+        role_path_to_send = build_standard_role_file(
+            role_label or "Selected Role",
+            role_text,
+            combined_signals,
+        )
+        company_path_to_send = build_standard_company_file(
+            company_label or role_label or "Selected Company",
+            company_text if company_text.strip() else role_text,
+            role_label or "Selected Role",
+            combined_signals,
+        )
+
+        temp_files.extend([role_path_to_send, company_path_to_send])
 
         if not BACKEND_EXE.exists():
             return {
