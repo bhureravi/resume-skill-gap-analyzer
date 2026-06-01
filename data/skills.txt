@@ -12,3 +12,13 @@ CSS
 JavaScript
 REST API
 Problem Solving
+Docker
+AWS
+Linux
+System Design
+Testing
+Debugging
+Communication
+JavaScript
+React
+Node.js

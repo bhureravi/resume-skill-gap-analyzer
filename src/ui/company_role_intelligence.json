@@ -1,0 +1,119 @@
+{
+  "amazon|software developer": {
+    "title": "Amazon - Software Developer",
+    "focus": [
+      "Data Structures and Algorithms",
+      "OOP and clean code",
+      "Scalability and system thinking",
+      "REST APIs",
+      "Debugging and optimization"
+    ],
+    "tips": [
+      "Practice medium-level DSA problems regularly.",
+      "Revise OOP concepts with real examples.",
+      "Be ready to explain how you would design scalable features.",
+      "Mention any project that shows clean architecture and modular code."
+    ],
+    "keywords": [
+      "AWS",
+      "DSA",
+      "OOP",
+      "System Design",
+      "REST API",
+      "Debugging"
+    ]
+  },
+  "amazon|backend developer": {
+    "title": "Amazon - Backend Developer",
+    "focus": [
+      "Distributed systems basics",
+      "REST APIs",
+      "Databases and SQL",
+      "Scalability",
+      "Problem solving"
+    ],
+    "tips": [
+      "Show one backend-style project in your resume.",
+      "Revise SQL and API concepts.",
+      "Practice explaining design decisions clearly.",
+      "Focus on problem solving and code clarity."
+    ],
+    "keywords": [
+      "AWS",
+      "SQL",
+      "REST API",
+      "Docker",
+      "Linux",
+      "System Design"
+    ]
+  },
+  "google|software engineer": {
+    "title": "Google - Software Engineer",
+    "focus": [
+      "Problem solving",
+      "Algorithms",
+      "Clean code",
+      "Data structures",
+      "Complexity analysis"
+    ],
+    "tips": [
+      "Keep your code simple and correct.",
+      "Be strong in DSA and reasoning.",
+      "Explain time and space complexity clearly.",
+      "Show projects that highlight logic depth."
+    ],
+    "keywords": [
+      "DSA",
+      "Algorithms",
+      "STL",
+      "OOP",
+      "Debugging"
+    ]
+  },
+  "microsoft|software engineer": {
+    "title": "Microsoft - Software Engineer",
+    "focus": [
+      "OOP fundamentals",
+      "Problem solving",
+      "System design basics",
+      "Collaboration",
+      "Testing"
+    ],
+    "tips": [
+      "Be ready to explain your class design.",
+      "Highlight teamwork and project structure.",
+      "Show testing or validation in your project.",
+      "Talk about maintainability and clean interfaces."
+    ],
+    "keywords": [
+      "OOP",
+      "Testing",
+      "System Design",
+      "Debugging",
+      "Communication"
+    ]
+  },
+  "default": {
+    "title": "General Prep",
+    "focus": [
+      "DSA basics",
+      "OOP concepts",
+      "Projects",
+      "Communication",
+      "Resume clarity"
+    ],
+    "tips": [
+      "Keep improving your core skills.",
+      "Use your project to show real problem solving.",
+      "Be ready to explain every line of your project.",
+      "Add proof of work through GitHub and screenshots."
+    ],
+    "keywords": [
+      "DSA",
+      "OOP",
+      "Git",
+      "Debugging",
+      "Communication"
+    ]
+  }
+}
