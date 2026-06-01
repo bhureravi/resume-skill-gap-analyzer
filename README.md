@@ -33,6 +33,32 @@ Integration:
 ![Results](screenshots/1.png)
 ![Live Jobs](screenshots/2.png)
 
+
+## Running Locally
+
+```bash
+git clone https://github.com/yourusername/resume-skill-gap-analyzer.git
+cd resume-skill-gap-analyzer
+
+pip install -r requirements.txt
+
+streamlit run src/ui/app.py
+```
+
+Open:
+
+```text
+http://localhost:8501
+```
+
+### Optional
+
+For live job market data, add your Adzuna API credentials in:
+
+```text
+src/ui/.streamlit/secrets.toml
+```
+
 ## Future Improvements
 
 - AI resume rewriting
