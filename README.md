@@ -35,33 +35,42 @@ Integration:
 ![](screenshots/2.png)
 
 
-## Running Locally
+## Running the Project
+
+1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/resume-skill-gap-analyzer.git
-cd resume-skill-gap-analyzer
+git clone <repository-url>
+cd resume-skill-gap-analyze
+```
 
+2. Create a virtual environment and activate it
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+3. Install the required packages
+
+```bash
 pip install -r requirements.txt
+```
 
+4. Install Ollama and download the model used for AI analysis
+
+```bash
+ollama pull qwen2.5:3b
+```
+
+Make sure Ollama is running before starting the application.
+
+5. (Optional) Add your Adzuna API credentials in `.streamlit/secrets.toml` if you want live job market data.
+
+6. Start the application
+
+```bash
 streamlit run src/ui/app.py
 ```
 
-Open:
-
-```text
-http://localhost:8501
-```
-
-### Optional
-
-For live job market data, add your Adzuna API credentials in:
-
-```text
-src/ui/.streamlit/secrets.toml
-```
-
-## Future Improvements
-
-- AI resume rewriting
-- ATS score prediction
-- LLM powered recommendations
+Once the app opens in your browser, upload a resume and a role description (company description is optional) and run the analysis. The platform will generate skill-gap insights, ATS-style scoring, interview preparation recommendations, and role-specific feedback.
