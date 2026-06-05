@@ -1,5 +1,4 @@
 import os
-import re
 
 import streamlit as st
 
@@ -106,94 +105,24 @@ def split_items(value: str, delimiter: str = ","):
     return [x.strip() for x in value.split(delimiter) if x.strip()]
 
 
-def unique_keep_order(items):
-    seen = set()
-    result = []
-    for item in items:
-        key = item.strip().lower()
-        if key and key not in seen:
-            seen.add(key)
-            result.append(item.strip())
-    return result
-
-
 def clean_topic(text: str) -> str:
-    s = str(text).strip()
-    s = s.rstrip(".")
-    s = re.sub(r"^(curated tip|web insight|live insight|online keyword|market keyword)\s*:\s*", "", s, flags=re.I)
-    s = re.sub(r"^(priority skill for role|company expectation to cover|good-to-have skill for this role)\s*:\s*", "", s, flags=re.I)
-    s = re.sub(r"^(role gap|company gap|priority topic|online signal|live market signal)\s*:\s*", "", s, flags=re.I)
-    return s.strip()
-
-
-def build_recommendations(result: dict):
-    items = []
-
-    # 1) Main backend recommendations
-    items.extend(split_items(result.get("recommendations", ""), delimiter="||"))
-
-    # 2) Combined recommendations from backend bridge
-    items.extend(result.get("combined_recommendations", []))
-
-    # 3) Add a few helpful notes from curated / web / live signals
-    curated = result.get("curated", {}) or {}
-    items.extend(curated.get("tips", []))
-    items.extend(curated.get("focus", []))
-    items.extend(result.get("web_signals", []))
-    items.extend(result.get("live_signals", []))
-
-    # Normalize into human-style topics
-    topics = []
-    notes = []
-    for item in items:
-        txt = clean_topic(item)
-        if not txt:
-            continue
-
-        # Treat short topic-like items as skills/topics
-        if len(txt.split()) <= 5:
-            topics.append(txt)
-        else:
-            notes.append(txt)
-
-    topics = unique_keep_order(topics)
-    notes = unique_keep_order(notes)
-
-    recs = []
-
-    if topics:
-        top_topics = topics[:4]
-        if len(top_topics) == 1:
-            recs.append(f"Focus first on {top_topics[0]}.")
-        elif len(top_topics) == 2:
-            recs.append(f"Focus first on {top_topics[0]} and {top_topics[1]}.")
-        elif len(top_topics) == 3:
-            recs.append(f"Focus first on {top_topics[0]}, {top_topics[1]}, and {top_topics[2]}.")
-        else:
-            recs.append(f"Focus first on {top_topics[0]}, {top_topics[1]}, {top_topics[2]}, and {top_topics[3]}.")
-
-    # More natural, non-AI-ish bullets
-    topic_set = {t.lower() for t in topics}
-
-    if {"sql", "stl", "rest api"} & topic_set:
-        recs.append("Revise SQL, STL, and REST API together so you can explain them naturally in interviews.")
-
-    if {"problem solving", "debugging", "algorithms"} & topic_set:
-        recs.append("Practice timed problem solving and keep explaining your steps clearly while debugging.")
-
-    if {"c++", "oop", "stl"} & topic_set:
-        recs.append("Be ready to explain your C++ class design, STL choices, and file handling approach.")
-
-    if {"system design", "microservices", "backend development"} & topic_set:
-        recs.append("Refresh your backend and system design basics so your project story sounds practical.")
-
-    if notes:
-        recs.append(notes[0])
-
-    recs.append("Keep one strong project story ready: problem, approach, and result.")
-    recs.append("Use the resume to show impact and clarity, not only a list of tools.")
-
-    return unique_keep_order(recs)[:7]
+    s = str(text).strip().rstrip(".")
+    prefixes = [
+        "Role gap:",
+        "Company gap:",
+        "Priority topic:",
+        "Online signal:",
+        "Live market signal:",
+        "Curated tip:",
+        "Web insight:",
+        "Live insight:",
+        "Online keyword:",
+        "Market keyword:",
+    ]
+    for p in prefixes:
+        if s.lower().startswith(p.lower()):
+            s = s[len(p):].strip()
+    return s
 
 
 with st.sidebar:
@@ -216,40 +145,14 @@ with left_col:
             unsafe_allow_html=True,
         )
 
-        resume_file = st.file_uploader(
-            "Upload Resume",
-            type=["txt", "pdf"],
-        )
+        resume_file = st.file_uploader("Upload Resume", type=["txt", "pdf"])
+        role_file = st.file_uploader("Upload Role File", type=["txt", "pdf"])
+        company_file = st.file_uploader("Upload Company File (optional)", type=["txt", "pdf"])
 
-        role_file = st.file_uploader(
-            "Upload Role File",
-            type=["txt", "pdf"],
-        )
-
-        company_file = st.file_uploader(
-            "Upload Company File (optional)",
-            type=["txt", "pdf"],
-        )
-
-        role_name = st.text_input(
-            "Role Label",
-            placeholder="Example: software developer",
-        )
-
-        company_name = st.text_input(
-            "Company Label (optional)",
-            placeholder="Example: amazon",
-        )
-
-        country_code = st.text_input(
-            "Adzuna Country Code",
-            value="gb",
-        )
-
-        location_filter = st.text_input(
-            "Location Filter (optional)",
-            placeholder="Example: London",
-        )
+        role_name = st.text_input("Role Label", placeholder="Example: software developer")
+        company_name = st.text_input("Company Label (optional)", placeholder="Example: amazon")
+        country_code = st.text_input("Adzuna Country Code", value="gb")
+        location_filter = st.text_input("Location Filter (optional)", placeholder="Example: London")
 
         use_live_api = st.checkbox("Use live job API", value=True)
         use_web_intelligence = st.checkbox("Use web research", value=True)
@@ -287,7 +190,7 @@ with right_col:
             else:
                 badge = "Job Ready"
 
-            st.success(f"Readiness: {badge}")
+            st.success(f"Profile Status: {badge}")
 
             st.markdown("### Extracted Skills")
             extracted = result.get("extracted_skills", "")
@@ -300,7 +203,8 @@ with right_col:
         elif st.session_state.last_result and not st.session_state.last_result.get("ok"):
             st.error(st.session_state.last_result.get("error", "Backend error"))
             if st.session_state.last_result.get("live_error"):
-                st.warning(st.session_state.last_result.get("live_error"))
+             st.warning(st.session_state.last_result.get("live_error"))
+            st.stop()
         else:
             st.info("Your analysis result will appear here after you run the backend.")
 
@@ -310,45 +214,64 @@ if st.session_state.last_result:
     result = st.session_state.last_result
 
     with st.container(border=True):
-     st.markdown(
-        '<div class="section-title">Areas To Improve</div>',
-        unsafe_allow_html=True
-    )
+     st.markdown('<div class="section-title">Areas To Improve</div>', unsafe_allow_html=True)
 
-    missing_items = result.get("combined_missing", [])
+     missing_items = result.get("combined_missing", [])
+     cleaned = []
 
-    cleaned = []
-
-    for item in missing_items:
+     for item in missing_items:
         value = clean_topic(item)
-
         if value and value.lower() not in [x.lower() for x in cleaned]:
             cleaned.append(value)
 
-    if cleaned:
-
-        st.write(
-            f"You may want to strengthen the following {len(cleaned)} areas:"
-        )
-
-        for item in cleaned:
+     if cleaned:
+        st.write("A few areas to strengthen:")
+        for item in cleaned[:6]:
             st.write(f"• {item}")
-
-    else:
-        st.success(
-            "Your resume already covers most of the expected requirements."
-        )
+     else:
+        st.success("Your resume already covers most of the expected requirements.")
 
     st.divider()
 
     with st.container(border=True):
         st.markdown('<div class="section-title">Recommendations</div>', unsafe_allow_html=True)
-        recommendation_items = build_recommendations(result)
+        recommendation_items = result.get("combined_recommendations", [])
         if recommendation_items:
-            for item in recommendation_items:
-                st.write(f"- {item}")
+            for item in recommendation_items[:7]:
+                st.write(f"- {clean_topic(item)}")
         else:
             st.write("No recommendations available yet.")
+
+    st.divider()
+
+    with st.container(border=True):
+     st.markdown('<div class="section-title">AI Resume Review</div>', unsafe_allow_html=True)
+
+    ai = result.get("ai_insights", {}) or {}
+
+    ats_score = ai.get("ats_score", None)
+
+    col1, col2 = st.columns([1, 2])
+
+    if ats_score is None:
+        col1.metric("ATS Fit", "Not available")
+    else:
+        col1.metric("ATS Fit", f"{ats_score}/100")
+
+    summary_text = str(ai.get("summary", "")).strip()
+    col2.write(summary_text if summary_text else "AI review not ready yet.")
+
+    def show_list(title, items):
+        clean_items = [str(x).strip() for x in (items or []) if str(x).strip()]
+        if clean_items:
+            st.markdown(f"**{title}**")
+            for item in clean_items[:4]:
+                st.write(f"- {item}")
+
+    show_list("ATS improvements", ai.get("ats_improvements"))
+    show_list("Top gaps", ai.get("top_gaps"))
+    show_list("Priority actions", ai.get("priority_actions"))
+    show_list("Interview focus", ai.get("interview_focus"))
 
     st.divider()
 

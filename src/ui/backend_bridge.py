@@ -4,9 +4,9 @@ import re
 import subprocess
 import tempfile
 from pathlib import Path
-
 from pypdf import PdfReader
 
+from ai_insights import generate_ai_insights
 from job_api import (
     compose_live_summary,
     fetch_adzuna_jobs,
@@ -15,7 +15,8 @@ from job_api import (
 from web_intel import search_web_intelligence
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-BACKEND_EXE = PROJECT_ROOT / ("backend_cli.exe" if os.name == "nt" else "backend_cli")
+BACKEND_EXE = PROJECT_ROOT / "backend_cli.exe"
+print(BACKEND_EXE)
 SKILLS_FILE = PROJECT_ROOT / "data" / "skills.txt"
 
 
@@ -288,6 +289,7 @@ def run_backend_analysis(
                 "curated": {},
                 "combined_missing": [],
                 "combined_recommendations": [],
+                "ai_insights": {},
             }
 
         resume_path = write_temp_text("resume_", resume_text)
@@ -390,6 +392,10 @@ def run_backend_analysis(
                 "curated": curated,
                 "combined_missing": [],
                 "combined_recommendations": [],
+                "ai_insights": {},
+                "resume_text": resume_text,
+                "role_text": role_text,
+                "company_text": company_text,
             }
 
         cmd = [
@@ -399,11 +405,17 @@ def run_backend_analysis(
             company_path_to_send,
             str(SKILLS_FILE),
         ]
-
+        print("CMD =", cmd)
+        print("BACKEND =", BACKEND_EXE)
+        print("SKILLS =", SKILLS_FILE)
+        print("ROLE FILE =", role_path_to_send)
+        print("COMPANY FILE =", company_path_to_send)
+        print("RESUME FILE =", resume_path)
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
+            timeout=20
         )
 
         parsed = parse_backend_output(result.stdout)
@@ -418,6 +430,9 @@ def run_backend_analysis(
         parsed["web_results"] = web_result.get("results", [])
         parsed["web_signals"] = web_signals
         parsed["curated"] = curated
+        parsed["resume_text"] = resume_text
+        parsed["role_text"] = role_text
+        parsed["company_text"] = company_text
 
         backend_recommendations = split_items(parsed.get("recommendations", ""), "||")
         web_tips = [signal_to_tip(sig) for sig in web_signals]
@@ -438,9 +453,24 @@ def run_backend_analysis(
         parsed["combined_recommendations"] = combined_recommendations
         parsed["combined_missing"] = combined_missing
 
+        parsed["ai_insights"] = ai_insights = generate_ai_insights(
+    resume_text=resume_text,
+    role_text=role_text,
+    company_text=company_text,
+    backend_data=parsed,
+)
+
         if result.returncode != 0:
             parsed["ok"] = False
-            parsed["error"] = parsed["stderr"] or "Backend process failed."
+            parsed["error"] = f"""
+        RETURN CODE: {result.returncode}
+
+        STDERR:
+        {result.stderr}
+
+        STDOUT:
+        {result.stdout}
+        """
         else:
             parsed["ok"] = True
 
