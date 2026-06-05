@@ -31,7 +31,8 @@ Integration:
 
 ![Home](screenshots/1.png)
 ![Results](screenshots/1.png)
-![Live Jobs](screenshots/2.png)
+![AI-Suggestions](screenshots/2.png)
+![](screenshots/2.png)
 
 
 ## Running Locally
